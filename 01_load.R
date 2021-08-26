@@ -89,3 +89,56 @@ nonMBA <- c("Accipitridae", "Alcedinidae", "Anhingidae", "Aramidae", "Cathartida
             "Tytonidae")
 
 NACC %>% filter(!family %in% nonMBA) %>% count(family)
+
+
+###--- from BC Species & Ecosystems Explorer
+# accessed 26 August 2021
+# Citation:B.C. Conservation Data Centre. 2021. BC Species and Ecosystems Explorer. B.C. Ministry of Environment, Victoria B.C. Available: http://a100.gov.bc.ca/pub/eswp/ (26-Aug-2021)
+# Search Criteria: 
+# Search Type: using the ENV Region search filter (Reg 2) AND vertebrates, excluding fish
+# Sort Order: Scientific Name Ascending
+
+# read in BCSEE listed (red/blue and SARA) species
+BCSEE_listed <- read.csv("data/BCSEE_Listed_species.csv")
+glimpse(BCSEE_listed) # 145
+
+# read in BCSEE Migratory Bird Convention Act species
+BCSEE_MBCA <- read.csv("data/BCSEE_MBCA.csv")
+glimpse(BCSEE_MBCA) #57
+
+
+###--- figure out duplicates and isolate solo federal jurisdiction
+BCSEE_listed$SARA_TE <- ifelse(grepl("T", BCSEE_listed$SARA), "T",
+                               ifelse(grepl("E", BCSEE_listed$SARA), "E",
+                                      ifelse(grepl("SC", BCSEE_listed$SARA), "SC",
+                                             ifelse(grepl("XX", BCSEE_listed$SARA), "XX",NA))))
+
+BCSEE_listed %>% filter(BC.List %in% c("Blue","Red")) %>% filter(SARA_TE %in% c("T","E")) %>% select(English.Name)
+
+BCSEE_listed$BC_SARA <- ifelse(grepl("T|E", BCSEE_listed$SARA_TE), "SARA_TE",
+                               ifelse(grepl("Red|Blue", BCSEE_listed$BC.List), "BC_RB",NA))
+
+BC_listed <- BCSEE_listed %>% filter(!is.na(BC_SARA)) %>% select(Scientific.Name, English.Name, BC.List, SARA)
+
+###--- figure out duplicates and isolate solo federal jurisdiction
+BCSEE_MBCA$SARA_TE <- ifelse(grepl("T", BCSEE_MBCA$SARA), "T",
+                               ifelse(grepl("E", BCSEE_MBCA$SARA), "E",
+                                      ifelse(grepl("SC", BCSEE_MBCA$SARA), "SC",
+                                             ifelse(grepl("XX", BCSEE_MBCA$SARA), "XX",NA))))
+BCSEE_MBCA %>% filter(BC.List %in% c("Blue","Red")) #%>% filter(SARA_TE %in% c("T","E")) %>% select(English.Name)
+BCSEE_MBCA$BC_SARA <- ifelse(grepl("T|E", BCSEE_MBCA$SARA_TE), "SARA_TE",
+                               ifelse(grepl("Red|Blue", BCSEE_MBCA$BC.List), "BC_RB",NA))
+
+BCSEE_MBCA %>% filter(!grepl("Red|Blue", BC.List)) %>% select(English.Name)
+
+MBCA_listed <- BCSEE_MBCA %>% filter(!is.na(BC_SARA)) %>% select(Scientific.Name, English.Name, BC.List, SARA)
+MBCA_listed$MBCA <- "MBCA"
+
+BC_listed$MBCA <- MBCA_listed$MBCA[match(BC_listed$Scientific.Name, MBCA_listed$Scientific.Name)]
+BC_listed %>% filter(!is.na(MBCA))
+
+write.csv(BC_listed, "out/BCSEE_listed_MBCA.csv", row.names = FALSE)
+
+# read in species list data
+# sp.list <- read_excel("data/species_list_May-05-21.xlsx",sheet = 3, trim_ws = TRUE, col_types = c("text")) %>% type.convert()
+sp.list <- read_excel("data/species_list_Jul-06-21.xlsx",sheet = 1, trim_ws = TRUE, col_types = c("text")) %>% type.convert() # updated to 101 included species
